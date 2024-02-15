@@ -34,7 +34,7 @@ from selenium.common.exceptions import NoSuchElementException
 class Scraper_SistemaTramitacion(Scraper):
 
     parameters = {
-        "CANTidad_WORDS": 20,
+        "CANT_WORDS": 20,
         "WAIT_TIME_1": 1,
         "WAIT_TIME_2": 5,
         "WAIT_TIME_3": 10,
@@ -44,9 +44,9 @@ class Scraper_SistemaTramitacion(Scraper):
         "MAIN_PAGE": 'https://discrepancias.panelexpertos.cl/',
         "XPATH_BTN_NEW_DISCR": '/html/body/div[1]/div/div/div/div/div[2]/div/div[3]/button/span[2]',
         "XPATH_ITEM_LAST_TABLE": '/html/body/div[1]/div/div/div/div/div[2]/div/div[2]/nav/ul/li[8]',
-        "XPATH_BTN_LAST_TABLE_R": '/html/body/div[1]/div/div/div/div/div[2]/div/div[2]/nav/ul/li[8]/button',
-        "XPATH_BTN_LAST_TABLE_L": '/html/body/div[1]/div/div/div/div/div[2]/div/div[2]/nav/ul/li[1]/button',   
-        "XPATH_BTN_ACTUAL_TABLE": '/html/body/div[1]/div/div/div/div/div[2]/div/div[2]/nav/ul/li[9]/button',
+        "XPATH_BTN_LAST_TABLE": '/html/body/div[1]/div/div/div/div/div[2]/div/div[2]/nav/ul/li[8]/button',
+        "XPATH_BTN_ACTUAL_TABLE_L": '/html/body/div[1]/div/div/div/div/div[2]/div/div[2]/nav/ul/li[1]/button',   
+        "XPATH_BTN_ACTUAL_TABLE_R": '/html/body/div[1]/div/div/div/div/div[2]/div/div[2]/nav/ul/li[9]/button',
         "XPATH_BTN_DISCR": '/html/body/div[1]/div/div/div/div/div[2]/div/div[1]/table/tbody/tr[{}]',
         "XPATH_BTN_EXPED": '/html/body/div[1]/div/div/div/div/div[2]/div[2]/div[1]/button',
         "XPATH_BTN_INTER": '/html/body/div[1]/div/div/div/div/div[2]/div[2]/div[2]/button',
@@ -188,6 +188,8 @@ class Scraper_SistemaTramitacion(Scraper):
         # Start Chrome browser with configured options
         driver = webdriver.Chrome(options=options)
         #driver = webdriver.Firefox(options=options)
+
+        driver.set_window_position(2000,0)
         return driver
 
 #  -  Data Extraction Functions
@@ -211,7 +213,7 @@ class Scraper_SistemaTramitacion(Scraper):
         last_table = driver.find_element(By.XPATH, self.parameters.get("XPATH_ITEM_LAST_TABLE"))
         last_table = int(last_table.text)
 
-        xpath_btn_actual_table = "XPATH_BTN_LAST_TABLE_L" if self.activate_reverse else "XPATH_BTN_LAST_TABLE_R"
+        xpath_btn_actual_table = "XPATH_BTN_ACTUAL_TABLE_L" if self.activate_reverse else "XPATH_BTN_ACTUAL_TABLE_R"
         if self.activate_reverse:
             # click on last table
             WebDriverWait(driver, self.parameters.get("WAIT_TIME_6"))\
@@ -221,7 +223,7 @@ class Scraper_SistemaTramitacion(Scraper):
         discr_num_in_table, table_iterator = 0, 0
         if (discr_number != 0) and (not search_finished):
             self.discr_counter = discr_number 
-            discr_num_in_table, table_iterator = self.__discr_selector(discr_number)
+            discr_num_in_table, table_iterator = self.__discr_selector(discr_number, xpath_btn_actual_table)
             search_finished = True
 
         for j in range(table_iterator, last_table):
@@ -366,6 +368,7 @@ class Scraper_SistemaTramitacion(Scraper):
 
             # click on document
             xpath_btn_doc = self.parameters.get("XPATH_BTN_DOC").format(str(i+1))
+            print(xpath_btn_doc)
             WebDriverWait(driver, self.parameters.get("WAIT_TIME_6"))\
                 .until(EC.element_to_be_clickable((By.XPATH, xpath_btn_doc))).click()  
             
@@ -578,7 +581,7 @@ class Scraper_SistemaTramitacion(Scraper):
 
         return path_end
 
-    def __extract_text_from_pdf(self, pdf_path):    # Method that extracts content from a file if it is not corrupt 
+    def __extract_text_from_pdf(self, pdf_path):
         text = ''
         num_pages = 0
         total_words = 0
@@ -590,33 +593,41 @@ class Scraper_SistemaTramitacion(Scraper):
                 
                 for page_num in range(num_pages):
                     page_text = pdf_reader.pages[page_num].extract_text()
-                    text += page_text
-                    
-                    # Count words on the current page
-                    words = re.findall(r'\w+', page_text)
-                    total_words += len(words)
-                    
+                    if page_text:  # Ensure there is text on the page
+                        text += page_text
+                        
+                        # Count words on the current page
+                        words = re.findall(r'\w+', page_text)
+                        total_words += len(words)
+                    else:
+                        print(f"Warning: No text found on page {page_num+1}")
+                        
             return text, num_pages, total_words
         
-        except EmptyFileError:
-            print("Error: Cannot read an empty file")
+        except (EmptyFileError, Exception) as e:
+            print(f"Error: Cannot read the file '{pdf_path}'. It may be damaged or in an unrecognized format.")
             return "", -1, -1
 
-    def __discr_selector(self, discr_number):    # Method to debug. Select the discrepancy number from which scraping begins 
+
+    def __discr_selector(self, discr_number, xpath_btn_actual_table):    # Method to debug. Select the discrepancy number from which scraping begins 
         driver = self.driver
         # recive discr_number
         # count in actual table
         finded = False
         table_iterator = 0
-        num_rows_discrs = self.__num_rows_table(driver, self.parameters.get("XPATH_TAB_DISCR"), './/tr')    # Get the number of discrepancies 
+        num_rows_discrs = self.__num_rows_table(driver, self.parameters.get("XPATH_TAB_DISCRS"), './/tr')    # Get the number of discrepancies 
         accumulator = num_rows_discrs
+        print(f'accumulator: {accumulator}')
         while not finded:
             spare = abs(discr_number - accumulator) # 11
+            print(f'spare: {spare}')
             # si la discrepancia no está en esta tabla
             if accumulator < discr_number:
+                print(f'accumulator < discr_number: {discr_number}')
+                print(f'XPATH_BTN_ACTUAL_TABLE: {spare}')
                 # click on current discrepancy table button
                 WebDriverWait(driver, self.parameters.get("WAIT_TIME_6"))\
-                    .until(EC.element_to_be_clickable((By.XPATH, self.parameters.get("XPATH_BTN_ACTUAL_TABLE")))).click()
+                    .until(EC.element_to_be_clickable((By.XPATH, self.parameters.get(xpath_btn_actual_table)))).click()
                 time.sleep(self.parameters.get("WAIT_TIME_2"))
                 table_iterator = table_iterator + 1
                 num_rows_discrs = self.__num_rows_table(driver, self.parameters.get("XPATH_TAB_DISCRS"), './/tr')    # Get the number of discrepancies 

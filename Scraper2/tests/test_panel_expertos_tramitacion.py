@@ -20,11 +20,8 @@ scraper = Scraper_SistemaTramitacion(
 
 # Scraping
 activate_reverse = False
-discr_number = 1
+discr_number = 16
 scraper.update(activate_reverse, discr_number - 1)
 
 
-
-# data_panelexp/discrepancias/REP 2312-18  - PODER GG y GGS LUZPARRAL.PDF
-# data_panelexp/discrepancias/REP 2312-18 - PODER GG y GGS LUZPARRAL.PDF
 
