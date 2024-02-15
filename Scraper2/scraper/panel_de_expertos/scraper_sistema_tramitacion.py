@@ -368,7 +368,6 @@ class Scraper_SistemaTramitacion(Scraper):
 
             # click on document
             xpath_btn_doc = self.parameters.get("XPATH_BTN_DOC").format(str(i+1))
-            print(xpath_btn_doc)
             WebDriverWait(driver, self.parameters.get("WAIT_TIME_6"))\
                 .until(EC.element_to_be_clickable((By.XPATH, xpath_btn_doc))).click()  
             
@@ -537,8 +536,6 @@ class Scraper_SistemaTramitacion(Scraper):
         name_file = name_file.text # file name
         path_start = os.path.join(start_folder, name_file) # start path
         path_end = os.path.join(end_folder, name_file)  # end path
-        print(path_start)
-        print(path_end)
         if not os.path.exists(path_end): # debug when the file has already been downloaded
             WebDriverWait(driver, self.parameters.get("WAIT_TIME_6"))\
                 .until(EC.element_to_be_clickable((By.XPATH, xpath_btn_dwld))).click() # download it
@@ -608,7 +605,6 @@ class Scraper_SistemaTramitacion(Scraper):
             print(f"Error: Cannot read the file '{pdf_path}'. It may be damaged or in an unrecognized format.")
             return "", -1, -1
 
-
     def __discr_selector(self, discr_number, xpath_btn_actual_table):    # Method to debug. Select the discrepancy number from which scraping begins 
         driver = self.driver
         # recive discr_number
@@ -617,14 +613,10 @@ class Scraper_SistemaTramitacion(Scraper):
         table_iterator = 0
         num_rows_discrs = self.__num_rows_table(driver, self.parameters.get("XPATH_TAB_DISCRS"), './/tr')    # Get the number of discrepancies 
         accumulator = num_rows_discrs
-        print(f'accumulator: {accumulator}')
         while not finded:
-            spare = abs(discr_number - accumulator) # 11
-            print(f'spare: {spare}')
+            spare = abs(discr_number - accumulator) 
             # si la discrepancia no está en esta tabla
             if accumulator < discr_number:
-                print(f'accumulator < discr_number: {discr_number}')
-                print(f'XPATH_BTN_ACTUAL_TABLE: {spare}')
                 # click on current discrepancy table button
                 WebDriverWait(driver, self.parameters.get("WAIT_TIME_6"))\
                     .until(EC.element_to_be_clickable((By.XPATH, self.parameters.get(xpath_btn_actual_table)))).click()
