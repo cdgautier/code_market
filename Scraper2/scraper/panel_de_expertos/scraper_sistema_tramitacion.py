@@ -36,9 +36,9 @@ class Scraper_SistemaTramitacion(Scraper):
     parameters = {
         "CANT_WORDS": 20,
         "WAIT_TIME_1": 1,
-        "WAIT_TIME_2": 5,
-        "WAIT_TIME_3": 10,
-        "WAIT_TIME_4": 20,
+        "WAIT_TIME_2": 10,
+        "WAIT_TIME_3": 15,
+        "2": 20,
         "WAIT_TIME_5": 40,
         "WAIT_TIME_6": 60,
         "MAIN_PAGE": 'https://discrepancias.panelexpertos.cl/',
@@ -79,6 +79,7 @@ class Scraper_SistemaTramitacion(Scraper):
         self.actual_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         self.driver = self.__driver_init()
         self.activate_reverse = False
+        self.activate_short_path = False
         self.discr_counter = 0
         # general, title, capture_date, page
         self.data_general = {
@@ -189,7 +190,7 @@ class Scraper_SistemaTramitacion(Scraper):
         driver = webdriver.Chrome(options=options)
         #driver = webdriver.Firefox(options=options)
 
-        driver.set_window_position(2000,0)
+        # driver.set_window_position(2000,0)    # To open window on second screen
         return driver
 
 #  -  Data Extraction Functions
@@ -249,11 +250,10 @@ class Scraper_SistemaTramitacion(Scraper):
                     iterator = str(self.discr_counter)
 
                 discr_table_data = self.__extract_discr_data(xpath_btn_discr)   # Extract discrepancy data
-                num_discr = self._change_numdiscr_format(discr_table_data[0])
+                num_discr = self.__change_numdiscr_format(discr_table_data[0])
                 name_discr = discr_table_data[1]
-                #rest_path = iterator + '_' + name_discr[:self.parameters.get("CANT_WORDS")]
-                #rest_path = num_discr + '_' + name_discr[:self.parameters.get("CANT_WORDS")] 
-                rest_path = num_discr + '_' + name_discr
+                #rest_path = self.__set_path_length(self.activate_short_path, iterator, name_discr)
+                rest_path = self.__set_path_length(self.activate_short_path, num_discr, name_discr)
                 if rest_path[-1] == ' ':
                     rest_path = rest_path + '_'
                 path_discr = os.path.join(path_files, rest_path) # Create the path of the discrepancy folder
@@ -376,8 +376,7 @@ class Scraper_SistemaTramitacion(Scraper):
             url_document = str(driver.current_url) # extract document url
 
             name_docu = data_local['titulo_documento']
-            #rest_path =  iterator_docu + '_' + name_docu[:self.parameters.get("CANT_WORDS")]
-            rest_path =  iterator_docu + '_' + name_docu
+            rest_path = self.__set_path_length(self.activate_short_path, iterator_docu, name_docu)
             if rest_path[-1] == ' ':
                 rest_path = rest_path + '_'
             path_docu = os.path.join(path_discr, rest_path) # Create document folder path
@@ -537,31 +536,34 @@ class Scraper_SistemaTramitacion(Scraper):
         path_start = os.path.join(start_folder, name_file) # start path
         path_end = os.path.join(end_folder, name_file)  # end path
         if not os.path.exists(path_end): # debug when the file has already been downloaded
+            # Click the button after the iframe is fully loaded
             WebDriverWait(driver, self.parameters.get("WAIT_TIME_6"))\
                 .until(EC.element_to_be_clickable((By.XPATH, xpath_btn_dwld))).click() # download it
-            time.sleep(self.parameters.get("WAIT_TIME_4"))  # Wait for the file to download completely
-            self.__correct_file_name(self.path_files)
+            successful_download = self.__wait_for_file(self.parameters.get("WAIT_TIME_3"), self.path_files)
             # -- debug when the file is not found on the web
-            if not os.path.exists(path_start): # if the file has not been downloaded
+            if not successful_download: # if the file has not been downloaded
                 error_message = 'ERROR - contenido no econtrado'
                 path_end = self.__redo_path(end_folder, name_file)
                 if not os.path.exists(path_end): # if this .txt has not been previously downloaded
                     with open(path_end, 'w') as error_file:
                         error_file.write(error_message) # write the file
                         data_text, num_pages, total_words = error_message, 0, 0
+                        print(f'El contenido  - {name_file + ".txt"} - no se ha encontrado PDF')
                 else:
                     print(f'El contenido - {name_file + ".txt"} - ya existe en la carpeta de destino')
                     # extract file to txt
                     data_text, num_pages, total_words = error_message, 0, 0
             else:
                 os.rename(path_start, path_end)  # Move the file to the destination folder
-                print(f'El contenido  - {name_file} - se ha descargado exitosamente en la carpeta de destino')
+                print(f'El contenido  - {name_file} - se ha movido exitosamente en la carpeta de destino')
                 # eliminar .txt si existe en la ruta de destino
                 path_end_txt = self.__redo_path(end_folder, name_file)
                 if os.path.exists(path_end_txt):
                     os.remove(path_end_txt)
                 # extract file to txt
                 data_text, num_pages, total_words = self.__extract_text_from_pdf(path_end)
+            
+            
         else:
             print(f'El contenido  - {name_file} - ya existe en la carpeta de destino')
             # extract file to txt
@@ -578,7 +580,7 @@ class Scraper_SistemaTramitacion(Scraper):
 
         return path_end
 
-    def __extract_text_from_pdf(self, pdf_path):
+    def __extract_text_from_pdf(self, pdf_path):    # Method that attempts to read the pdf content. If it is not found, it returns empty text.
         text = ''
         num_pages = 0
         total_words = 0
@@ -620,7 +622,8 @@ class Scraper_SistemaTramitacion(Scraper):
                 # click on current discrepancy table button
                 WebDriverWait(driver, self.parameters.get("WAIT_TIME_6"))\
                     .until(EC.element_to_be_clickable((By.XPATH, self.parameters.get(xpath_btn_actual_table)))).click()
-                time.sleep(self.parameters.get("WAIT_TIME_2"))
+                WebDriverWait(driver, self.parameters.get("WAIT_TIME_6"))\
+                    .until(EC.element_to_be_clickable((By.XPATH, self.parameters.get("XPATH_BTN_NEW_DISCR"))))   # Wait until the last element of the web page appears (a button)
                 table_iterator = table_iterator + 1
                 num_rows_discrs = self.__num_rows_table(driver, self.parameters.get("XPATH_TAB_DISCRS"), './/tr')    # Get the number of discrepancies 
                 accumulator = accumulator + num_rows_discrs 
@@ -629,32 +632,45 @@ class Scraper_SistemaTramitacion(Scraper):
                 finded = True
         return discrepancy, table_iterator
 
-    def __correct_file_name(self, directory):  # Debugging method. Fix downloaded file name that mistakenly comes with '  ' instead of ' '
-        # Iterate over the directory
-        for filename in os.listdir(directory):
-            # Check if the file is a PDF or PDF file
-            if filename.lower().endswith('.pdf'):
-                # Full path of the file
-                filepath = os.path.join(directory, filename)
-                # Replaces double spaces with a single space in the file name
-                new_filename = re.sub(r'  +', ' ', filename)
-                # Remove trailing whitespace if present
-                new_filename = new_filename.strip() if new_filename.endswith(' ') else new_filename
+    def __wait_for_file(self, timeout, directory): # Methof that debug and wait downloaded file 
+        start_time = time.time()
+        time_exceed = False
+        while not time_exceed:
+            # Iterate over the directory
+            for filename in os.listdir(directory):
+                # Check if the file is a PDF or PDF file
+                if filename.lower().endswith('.pdf'): # debugging file_name
+                    # Full path of the file
+                    filepath = os.path.join(directory, filename)
+                    # Replaces double spaces with a single space in the file name
+                    new_filename = re.sub(r'  +', ' ', filename)
+                    # Remove trailing whitespace if present
+                    new_filename = new_filename.strip() if new_filename.endswith(' ') else new_filename
+                    # If the filename has changed, rename the file
+                    if new_filename != filename:
+                        new_filepath = os.path.join(directory, new_filename)
+                        os.rename(filepath, new_filepath)
+                        print(f"El contenido - {filename} - ha sido renombrado como - {new_filename} -")
+                    time_exceed = True
+                    return True
+                if time.time() - start_time > timeout:
+                    time_exceed = True
+                    return False
+            time.sleep(0.2) 
 
-                # If the filename has changed, rename the file
-                if new_filename != filename:
-                    new_filepath = os.path.join(directory, new_filename)
-                    os.rename(filepath, new_filepath)
-                    print(f"El contenido {filename} ha sido renombrado como {new_filename}")
-
-    def _change_numdiscr_format(self, numdiscr):    # Method that reverses order in discrepancy number to use it as a folder path 
+    def __change_numdiscr_format(self, numdiscr):    # Method that reverses order in discrepancy number to use it as a folder path 
         # Split the string into num and year
         num, year = numdiscr.split()
         # Concatenate in the desired order
         new_format = year + ' ' + num
 
         return new_format
-
+    
+    def __set_path_length(self, activate_short_path, num, name):    # Method that selects whether the paths have full names or shortened to a number of characters
+        rest_path = num + '_' + name[:self.parameters.get("CANT_WORDS")] \
+            if activate_short_path else num + '_' + name
+        return rest_path
+    
     def __push_general(self):   # Method that updates the general table of the DB 
         data_general = self.data_general
         id_general = self.new_row('general', 
@@ -692,10 +708,11 @@ class Scraper_SistemaTramitacion(Scraper):
                              'url': data_local['url'],
                              'fecha_captura': data_local['fecha_captura']})
         
-    def update(self, activate_reverse, discr_number):     # Public method that runs scraping and updates the database 
+    def update(self, activate_reverse, activate_short_path, discr_number):     # Public method that runs scraping and updates the database 
         driver = self.driver # call the driver
         self.activate_reverse = activate_reverse
+        self.activate_short_path = activate_short_path
         self.__extract_discrepancys(discr_number) # execute method that scrapes discrepancies from the page
-        time.sleep(self.parameters.get("WAIT_TIME_3"))  # wait for some time and close the browser - optional
+        time.sleep(self.parameters.get("WAIT_TIME_2"))  # wait for some time and close the browser - optional
         driver.quit() 
 

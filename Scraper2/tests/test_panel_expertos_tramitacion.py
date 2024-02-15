@@ -19,9 +19,13 @@ scraper = Scraper_SistemaTramitacion(
     db=db)
 
 # Scraping
-activate_reverse = False
-discr_number = 16
-scraper.update(activate_reverse, discr_number - 1)
+activate_reverse = False # set True to activate reverse update
+activate_short_path = False # set True to activate reverse update
+discr_number = 1 # set the number to start scraping
+scraper.update(activate_reverse, activate_short_path, discr_number - 1)
+
+
+
 
 
 
