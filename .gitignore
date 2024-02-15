@@ -1,0 +1,13 @@
+# Ignore cache folders
+__pycache__
+
+# Ignore macOS system files
+.DS_Store
+
+# Ignore another folder within the main directory
+Scraper2/tests/Documentos
+Scraper2/tests/Bases de datos
+Scraper2/alarm
+Scraper2/db
+Scraper2/scraper/noticias
+Scraper2/utils
