@@ -5,36 +5,26 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 #------------------------------------------------------------------------------
-from scraper.panel_exp import parameters_panelexp as p
 from db.db import DB_sql
-#from alarm_expl import Alarm
-from scraper.panel_exp.scraper_panelexp import Scraper_PanelExpertos
+from scraper.panel_de_expertos.scraper_sistema_tramitacion import Scraper_SistemaTramitacion
 
 #------------------------------------------------------------------------------
 
 # Database
-db = DB_sql(p.PATH_DB)
+db = DB_sql(r"tests/Bases de datos/db.db")
 
 # Scraper
-scraper = Scraper_PanelExpertos(
-    path_files=os.path.abspath(p.PATH_DISCRS),
+scraper = Scraper_SistemaTramitacion(
+    path_files=os.path.abspath(r"tests/Documentos/Discrepancias_SistemaTramitacion"),
     db=db)
 
 # Scraping
-scraper.update()
+activate_reverse = False
+discr_number = 1
+scraper.update(activate_reverse, discr_number - 1)
 
-'''
 
-# Alarm
-alarm = Alarm(
-    {'EM': db},
-    {'EM': scraper},
-    [['sandoval.hector2002@gmail.com', '13:31', ['EM']],
-      ['hector.sabbath666@gmail.com', '13:32', ['EM']]]
-)
 
-alarm.alarm_programer()
-alarm.run_alarms()
-
-'''
+# data_panelexp/discrepancias/REP 2312-18  - PODER GG y GGS LUZPARRAL.PDF
+# data_panelexp/discrepancias/REP 2312-18 - PODER GG y GGS LUZPARRAL.PDF
 

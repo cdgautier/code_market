@@ -28,6 +28,8 @@ class Scraper_Electromineria(Scraper):
                                         ('fecha_captura', 'TEXT'),
                                         ('pagina', 'TEXT'),
                                         ('UNIQUE', '(titulo, pagina)')])
+            
+            
         
             self.new_table('electromineria', [('id_local', 'INTEGER PRIMARY KEY AUTOINCREMENT'),
                                               ('id_general', 'INTEGER'),
